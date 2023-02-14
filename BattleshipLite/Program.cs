@@ -11,8 +11,27 @@ namespace BattleshipLite
         {
             WelcomeMessage();
 
-            var player1 = CreatePlayer("Player 1");
-            var player2 = CreatePlayer("Player 2");
+            PlayerInfoModel player = CreatePlayer("Player 1");
+            PlayerInfoModel opponent = CreatePlayer("Player 2");
+            PlayerInfoModel winner = null;
+
+            do
+            {
+                DisplayShotGrid(player);
+                RecordPlayerShot(player, opponent);
+                bool isOpponentActive = PlayerStillActive(opponent);
+
+                if (isOpponentActive)
+                {
+                    (player, opponent) = (opponent, player);
+                }
+                else
+                {
+                    winner = player;
+                }
+            } while (winner == null);
+
+            IdentifyWinner(winner);
 
             Console.ReadLine();
         }
@@ -28,12 +47,10 @@ namespace BattleshipLite
             Console.WriteLine($"Setup for {playerTitle}");
             Console.WriteLine();
 
-            var player = new PlayerInfoModel();
+            PlayerInfoModel player = new PlayerInfoModel();
 
             player.PlayerName = AskForPlayerName();
-
             InitializeGrid(player);
-
             PlaceShips(player);
 
             Console.Clear();
@@ -44,7 +61,7 @@ namespace BattleshipLite
         private static string AskForPlayerName()
         {
             Console.Write("Enter your name: ");
-            var name = Console.ReadLine();
+            string name = Console.ReadLine();
 
             return name;
         }
@@ -54,14 +71,83 @@ namespace BattleshipLite
             do
             {
                 Console.Write($"Where do you want to place ship {player.ShipLocations.Count + 1}? ");
-                var location = Console.ReadLine();
+                string location = Console.ReadLine();
 
-                var isShipPlaced = GameLogic.PlaceShip(player, location);
+                bool isShipPlaced = PlaceShip(player, location);
                 if (!isShipPlaced)
                 {
                     Console.WriteLine("That is not a valid location. Please try again.");
                 }
             } while (player.ShipLocations.Count < 5);
+        }
+
+        private static void DisplayShotGrid(PlayerInfoModel player)
+        {
+            Console.WriteLine($"{player.PlayerName}'s Shot Grid");
+            Console.WriteLine();
+
+            string currentRow = player.ShotGrid[0].SpotLetter;
+
+            foreach (GridSpotModel gridSpot in player.ShotGrid)
+            {
+                if (gridSpot.SpotLetter != currentRow)
+                {
+                    Console.WriteLine();
+                    currentRow = gridSpot.SpotLetter;
+                }
+
+                switch (gridSpot.Status)
+                {
+                    case GridSpotStatus.Empty:
+                        Console.Write($" {gridSpot.SpotLetter}{gridSpot.SpotNumber} ");
+                        break;
+                    case GridSpotStatus.Hit:
+                        Console.Write(" 💥 ");
+                        break;
+                    case GridSpotStatus.Miss:
+                        Console.Write(" 🌊 ");
+                        break;
+                    default:
+                        Console.Write(" ? ");
+                        break;
+                }
+            }
+
+            Console.WriteLine();
+        }
+
+        private static void RecordPlayerShot(PlayerInfoModel player, PlayerInfoModel opponent)
+        {
+            bool isValidShot;
+            string row;
+            int column;
+
+            do
+            {
+                string shot = AskForShot();
+                (row, column) = SplitShotIntoRowAndColumn(shot);
+                isValidShot = ValidateShot(player, row, column);
+
+                if (!isValidShot)
+                {
+                    Console.WriteLine("That is not a valid location. Please try again.");
+                }
+            } while (!isValidShot);
+
+            bool isHit = IdentifyShotResult(opponent, row, column);
+            MarkShotResult(player, row, column, isHit);
+        }
+
+        private static string AskForShot()
+        {
+            Console.Write("Enter the location you want to shoot: ");
+            return Console.ReadLine();
+        }
+
+        private static void IdentifyWinner(PlayerInfoModel winner)
+        {
+            Console.WriteLine($"Congratulations {winner.PlayerName}! You won the game!");
+            Console.WriteLine($"{winner.PlayerName} took {GetShotCount(winner)} shots to sink all of the enemy ships.");
         }
     }
 }
